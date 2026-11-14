@@ -5,6 +5,23 @@ import { useToast } from '../components/Toast';
 import Icon from '../components/Icon';
 import Skeleton from '../components/Skeleton';
 
+// ✅ Bug Fix: Safe Date Formatter (ভুল ডেট দিলেও ক্র্যাশ করবে না)
+const formatDate = (dateStr) => {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'তারিখ নেই';
+    return d.toLocaleDateString('bn-BD', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch { return 'তারিখ নেই'; }
+};
+
+const formatNoticeDate = (dateStr) => {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '--';
+    return d.toLocaleDateString('bn-BD', { day: '2-digit', month: 'short' });
+  } catch { return '--'; }
+};
+
 export default function Home() {
   const [events, setEvents] = useState([]);
   const [gallery, setGallery] = useState([]);
@@ -18,16 +35,17 @@ export default function Home() {
   const toast = useToast();
 
   useEffect(() => {
-    // ✅ Bug Fix: Promise.allSettled ব্যবহার করা হয়েছে যাতে একটি API ফেইল করলেও বাকিগুলো লোড হয়
     Promise.allSettled([
       api.getEvents(), api.getGallery(), api.getStats(), api.getReviews(), api.getNotices()
     ])
       .then((results) => { 
-        if (results[0].status === 'fulfilled') setEvents(results[0].value || []);
-        if (results[1].status === 'fulfilled') setGallery(results[1].value || []);
-        if (results[2].status === 'fulfilled') setStats(results[2].value || {});
-        if (results[3].status === 'fulfilled') setReviews(results[3].value || []);
-        if (results[4].status === 'fulfilled') setNotices(results[4].value || []);
+        if (results[0].status === 'fulfilled' && Array.isArray(results[0].value)) setEvents(results[0].value);
+        if (results[1].status === 'fulfilled' && Array.isArray(results[1].value)) setGallery(results[1].value);
+        if (results[2].status === 'fulfilled' && results[2].value) {
+          setStats(prev => ({ ...prev, ...results[2].value })); // ✅ Bug Fix: Stats Safe Merge
+        }
+        if (results[3].status === 'fulfilled' && Array.isArray(results[3].value)) setReviews(results[3].value);
+        if (results[4].status === 'fulfilled' && Array.isArray(results[4].value)) setNotices(results[4].value);
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
@@ -149,24 +167,25 @@ export default function Home() {
           .trust-items { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
           .trust-item { font-size: 0.85rem; }
 
-          /* ✅ Bug Fix: ডাবল প্যাডিং রিমুভ করা হয়েছে */
           .notice-board { margin: 0 0 30px; padding: 15px; }
 
           .mission-split { grid-template-columns: 1fr; gap: 30px; }
           .mission-visual { padding: 30px 20px; }
           .section { padding: 40px 0; }
 
-          /* ✅ Bug Fix: CSS-এ আলাদা স্ক্রল ক্লাস তৈরি করা হয়েছে */
-          .mobile-scroll { display: flex; flex-direction: row; overflow-x: auto; scroll-snap-type: x mandatory; gap: 15px; padding-bottom: 15px; padding-left: 15px; padding-right: 15px; -webkit-overflow-scrolling: touch; }
+          /* ✅ App-like Horizontal Scroll (Edge-to-Edge) */
+          .mobile-scroll {
+            display: flex; flex-direction: row; overflow-x: auto; scroll-snap-type: x mandatory;
+            gap: 15px; padding-bottom: 15px; padding-left: 20px; padding-right: 20px;
+            margin-left: -20px; margin-right: -20px; /* Breaks out of container padding */
+            -webkit-overflow-scrolling: touch;
+          }
           .mobile-scroll::-webkit-scrollbar { display: none; }
-          .mobile-scroll > * { flex-shrink: 0; min-width: 85%; scroll-snap-align: center; }
-          
-          .grid, .grid-3 { display: grid; grid-template-columns: 1fr; gap: 15px; } /* মোবাইলে নরমাল গ্রিড */
-          .mobile-scroll.grid, .mobile-scroll.grid-3 { display: flex; } /* কিন্তু স্ক্রল ক্লাস থাকলে ফ্লেক্স হবে */
+          .mobile-scroll > * { flex-shrink: 0; min-width: 80%; scroll-snap-align: center; }
 
           .pillar-card, .event-card, .testimonial-card { padding: 24px; border-radius: var(--r-lg); }
 
-          .gallery-preview { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+          .gallery-preview { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0 15px; }
           
           .review-section { padding: 30px 20px; margin-top: 30px; border-radius: 0; }
           .review-form input, .review-form textarea { font-size: 16px; }
@@ -214,7 +233,7 @@ export default function Home() {
             <div className="notice-title"><Icon name="megaphone" size={22} /> জরুরি নোটিশ বোর্ড</div>
             {notices.map(n => (
               <div className="notice-item" key={n._id}>
-                <div className="notice-date">{new Date(n.event_date).toLocaleDateString('bn-BD', {day: '2-digit', month: 'short'})}</div>
+                <div className="notice-date">{formatNoticeDate(n.event_date)}</div>
                 <div className="notice-text"><strong>{n.title}</strong> {n.description}</div>
               </div>
             ))}
@@ -229,7 +248,6 @@ export default function Home() {
             <div className="mission-visual">
               <div className="mission-visual-inner">
                 <div style={{ background: '#fff', display: 'inline-block', padding: '15px', borderRadius: '50%', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
-                   {/* ✅ Bug Fix: ইমেজ সাইজ রেসপন্সিভ করা হয়েছে */}
                    <img src="https://res.cloudinary.com/vqcb8cvu/image/upload/f_auto,q_auto/logo" alt="Logo" style={{ width: '100px', height: '100px', objectFit: 'contain', borderRadius: '50%' }} />
                 </div>
                 <div className="mission-visual-stats">
@@ -258,7 +276,6 @@ export default function Home() {
             <span className="section-eyebrow">আমাদের লক্ষ্য</span>
             <h2 className="section-title">তিনটি স্তম্ভে গড়া আমাদের পথচলা</h2>
           </div>
-          {/* ✅ Bug Fix: mobile-scroll ক্লাস ব্যবহার করা হয়েছে যাতে ডেস্কটপে গ্রিড এবং মোবাইলে স্ক্রল হয় */}
           <div className="grid grid-3 mobile-scroll">
             {pillars.map((p, i) => (
               <div className="pillar-card" key={i}>
@@ -278,11 +295,11 @@ export default function Home() {
             <h2 className="section-title">চলমান ও আসন্ন ইভেন্ট</h2>
           </div>
           <div className="grid mobile-scroll">
-            {loading ? [1, 2, 3].map(i => <div key={i}><Skeleton variant="card" /></div>) : events.slice(0, 3).map(e => (
+            {loading ? [1, 2, 3].map(i => <Skeleton key={i} variant="card" />) : events.slice(0, 3).map(e => (
               <div className="event-card" key={e._id}>
                 <div className="event-card-header">
                   <div className={`event-badge ${e.type === 'event' ? 'event-badge-event' : 'event-badge-notice'}`}><Icon name="target" size={14} /> {e.type === 'event' ? 'ইভেন্ট' : 'নোটিশ'}</div>
-                  <div className="event-date"><Icon name="calendar" size={14} /> {new Date(e.event_date).toLocaleDateString('bn-BD', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+                  <div className="event-date"><Icon name="calendar" size={14} /> {formatDate(e.event_date)}</div>
                 </div>
                 <h3>{e.title}</h3><p>{e.description}</p>
               </div>
@@ -329,8 +346,8 @@ export default function Home() {
                 <div className="testimonial-quote"><Icon name="quote" size={40} strokeWidth={1.5} /></div>
                 <p className="testimonial-text">"{r.text}"</p>
                 <div className="testimonial-author">
-                  <div className="testimonial-avatar">{r.name.charAt(0)}</div>
-                  <div><strong>{r.name}</strong><span>{r.role}</span></div>
+                  <div className="testimonial-avatar">{r.name?.charAt(0) || '?'}</div>
+                  <div><strong>{r.name || 'নাম নেই'}</strong><span>{r.role || 'সদস্য'}</span></div>
                 </div>
               </div>
             ))}
