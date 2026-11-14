@@ -18,15 +18,16 @@ export default function Home() {
   const toast = useToast();
 
   useEffect(() => {
-    Promise.all([
+    // ✅ Bug Fix: Promise.allSettled ব্যবহার করা হয়েছে যাতে একটি API ফেইল করলেও বাকিগুলো লোড হয়
+    Promise.allSettled([
       api.getEvents(), api.getGallery(), api.getStats(), api.getReviews(), api.getNotices()
     ])
-      .then(([ev, ga, st, rv, nt]) => { 
-        setEvents(ev || []); 
-        setGallery(ga || []); 
-        setStats(st || {});
-        setReviews(rv || []);
-        setNotices(nt || []);
+      .then((results) => { 
+        if (results[0].status === 'fulfilled') setEvents(results[0].value || []);
+        if (results[1].status === 'fulfilled') setGallery(results[1].value || []);
+        if (results[2].status === 'fulfilled') setStats(results[2].value || {});
+        if (results[3].status === 'fulfilled') setReviews(results[3].value || []);
+        if (results[4].status === 'fulfilled') setNotices(results[4].value || []);
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
@@ -57,7 +58,7 @@ export default function Home() {
       <style>{`
         body { overflow-x: hidden; }
         
-        /* ====== DESKTOP CSS (Default) ====== */
+        /* ====== DESKTOP CSS ====== */
         .hero-2 { position: relative; overflow: hidden; border-radius: var(--r-xl); margin: 0 20px; background-image: linear-gradient(rgba(0, 30, 10, 0.7), rgba(0, 15, 0, 0.9)), url('/banner.webp'); background-size: cover; background-position: center; color: #fff; padding: 100px 20px 120px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3), inset 0 0 100px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); }
         .hero-2-inner { max-width: 800px; margin: 0 auto; position: relative; z-index: 1; animation: heroFadeUp 0.8s ease-out; }
         .hero-title { color: #fff; font-size: clamp(2.5rem, 5vw, 4rem); margin-bottom: 20px; line-height: 1.15; text-shadow: 0 0 20px rgba(255,255,255,0.4), 0 4px 15px rgba(0,0,0,0.5); background: linear-gradient(to right, #fff, #e2e8f0, #fff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shimmerText 3s infinite linear; background-size: 200% auto; }
@@ -89,6 +90,7 @@ export default function Home() {
         .mission-visual-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 30px; padding-top: 25px; border-top: 1px solid rgba(0,0,0,0.05); }
         .mission-visual-stats strong { display: block; font-size: 1.8rem; color: var(--primary-dark); }
         .mission-visual-stats span { font-size: .85rem; color: var(--muted); }
+        
         .pillar-card { background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: var(--r-lg); box-shadow: var(--glass-shadow); padding: 32px; transition: all 0.4s var(--t-spring); position: relative; overflow: hidden; }
         .pillar-card:hover { transform: translateY(-8px) scale(1.02); box-shadow: var(--glass-shadow-hover); background: var(--glass-bg-hover); border-color: #fff; }
         .pillar-icon { width: 70px; height: 70px; border-radius: var(--r-md); display: grid; place-items: center; margin-bottom: 24px; box-shadow: 0 10px 20px rgba(0,0,0,0.05); transition: transform 0.4s var(--t-spring); }
@@ -129,66 +131,45 @@ export default function Home() {
            📱 MOBILE APP-LIKE CSS (max-width: 768px)
            ========================================== */
         @media (max-width: 768px) {
-          /* Global Fixes */
-          body { padding-bottom: 70px; } /* Space for potential bottom nav */
+          body { padding-bottom: 70px; }
           
-          /* Hero Section - Edge to Edge */
           .hero-2 { margin: 0; border-radius: 0 0 30px 30px; padding: 60px 15px 40px; }
           .hero-title { font-size: 2.2rem; }
           .hero-2 p { font-size: 1rem; margin-bottom: 25px; }
           .hero-btns { flex-direction: column; gap: 12px; }
           .hero-btns .btn { width: 100%; padding: 16px; font-size: 1.05rem; }
           
-          /* Horizontal Scroll for Stats */
-          .hero-stats { 
-            gap: 15px; margin-top: 30px; flex-wrap: nowrap; 
-            overflow-x: auto; scroll-snap-type: x mandatory; 
-            justify-content: flex-start; padding-bottom: 10px;
-            -webkit-overflow-scrolling: touch;
-          }
+          .hero-stats { gap: 15px; margin-top: 30px; flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory; justify-content: flex-start; padding-bottom: 10px; -webkit-overflow-scrolling: touch; }
           .hero-stats::-webkit-scrollbar { display: none; }
           .hero-stat { min-width: 100px; scroll-snap-align: start; }
           .hero-stat-num { font-size: 1.8rem; }
           .hero-stat-label { font-size: 0.8rem; }
 
-          /* Trust Strip - App Grid */
           .trust-strip { margin: -20px 15px 30px; padding: 15px; border-radius: var(--r-xl); }
           .trust-items { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
           .trust-item { font-size: 0.85rem; }
 
-          /* Notice Board */
-          .notice-board { margin: 0 15px 30px; padding: 15px; }
+          /* ✅ Bug Fix: ডাবল প্যাডিং রিমুভ করা হয়েছে */
+          .notice-board { margin: 0 0 30px; padding: 15px; }
 
-          /* Mission Section */
           .mission-split { grid-template-columns: 1fr; gap: 30px; }
           .mission-visual { padding: 30px 20px; }
-
-          /* Section Headers */
           .section { padding: 40px 0; }
+
+          /* ✅ Bug Fix: CSS-এ আলাদা স্ক্রল ক্লাস তৈরি করা হয়েছে */
+          .mobile-scroll { display: flex; flex-direction: row; overflow-x: auto; scroll-snap-type: x mandatory; gap: 15px; padding-bottom: 15px; padding-left: 15px; padding-right: 15px; -webkit-overflow-scrolling: touch; }
+          .mobile-scroll::-webkit-scrollbar { display: none; }
+          .mobile-scroll > * { flex-shrink: 0; min-width: 85%; scroll-snap-align: center; }
           
-          /* Pillars & Events - Horizontal Scroll (App Style) */
-          .grid, .grid-3 { 
-            display: flex; flex-direction: row; overflow-x: auto; 
-            scroll-snap-type: x mandatory; gap: 15px; 
-            padding-bottom: 15px; padding-left: 15px; padding-right: 15px;
-            -webkit-overflow-scrolling: touch;
-          }
-          .grid::-webkit-scrollbar, .grid-3::-webkit-scrollbar { display: none; }
+          .grid, .grid-3 { display: grid; grid-template-columns: 1fr; gap: 15px; } /* মোবাইলে নরমাল গ্রিড */
+          .mobile-scroll.grid, .mobile-scroll.grid-3 { display: flex; } /* কিন্তু স্ক্রল ক্লাস থাকলে ফ্লেক্স হবে */
+
+          .pillar-card, .event-card, .testimonial-card { padding: 24px; border-radius: var(--r-lg); }
+
+          .gallery-preview { grid-template-columns: repeat(2, 1fr); gap: 10px; }
           
-          .pillar-card, .event-card { 
-            min-width: 85%; scroll-snap-align: center; 
-            padding: 24px; border-radius: var(--r-lg);
-          }
-
-          /* Gallery Preview - 2 Column Grid */
-          .gallery-preview { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0 15px; }
-
-          /* Reviews - Horizontal Scroll */
-          .testimonial-card { min-width: 85%; scroll-snap-align: center; }
-
-          /* Review Form */
           .review-section { padding: 30px 20px; margin-top: 30px; border-radius: 0; }
-          .review-form input, .review-form textarea { font-size: 16px; } /* Prevents iOS zoom */
+          .review-form input, .review-form textarea { font-size: 16px; }
           .review-form .btn { padding: 16px; font-size: 1.05rem; }
         }
       `}</style>
@@ -248,7 +229,8 @@ export default function Home() {
             <div className="mission-visual">
               <div className="mission-visual-inner">
                 <div style={{ background: '#fff', display: 'inline-block', padding: '15px', borderRadius: '50%', boxShadow: '0 10px 30px rgba(0,0,0,0.1)', marginBottom: '20px' }}>
-                   <img src="https://res.cloudinary.com/vqcb8cvu/image/upload/f_auto,q_auto/logo" alt="Logo" width="110" height="110" style={{ objectFit: 'contain', borderRadius: '50%' }} />
+                   {/* ✅ Bug Fix: ইমেজ সাইজ রেসপন্সিভ করা হয়েছে */}
+                   <img src="https://res.cloudinary.com/vqcb8cvu/image/upload/f_auto,q_auto/logo" alt="Logo" style={{ width: '100px', height: '100px', objectFit: 'contain', borderRadius: '50%' }} />
                 </div>
                 <div className="mission-visual-stats">
                   <div><strong>{stats.yearsRunning}</strong><span>বছর</span></div>
@@ -271,14 +253,13 @@ export default function Home() {
 
       {/* 5. THREE PILLARS */}
       <section className="section" style={{ background: 'rgba(255,255,255,0.3)', backdropFilter: 'blur(20px)' }}>
-        <div className="container" style={{ padding: '0 15px', marginBottom: 20 }}>
+        <div className="container">
           <div className="section-header">
             <span className="section-eyebrow">আমাদের লক্ষ্য</span>
             <h2 className="section-title">তিনটি স্তম্ভে গড়া আমাদের পথচলা</h2>
           </div>
-        </div>
-        <div className="container" style={{ padding: 0 }}>
-          <div className="grid grid-3">
+          {/* ✅ Bug Fix: mobile-scroll ক্লাস ব্যবহার করা হয়েছে যাতে ডেস্কটপে গ্রিড এবং মোবাইলে স্ক্রল হয় */}
+          <div className="grid grid-3 mobile-scroll">
             {pillars.map((p, i) => (
               <div className="pillar-card" key={i}>
                 <div className={`pillar-icon pillar-${p.color}`}><Icon name={p.icon} size={32} strokeWidth={2} /></div>
@@ -291,15 +272,13 @@ export default function Home() {
 
       {/* 6. UPCOMING EVENTS */}
       <section className="section">
-        <div className="container" style={{ padding: '0 15px', marginBottom: 20 }}>
+        <div className="container">
           <div className="section-header">
             <span className="section-eyebrow">আপডেট</span>
             <h2 className="section-title">চলমান ও আসন্ন ইভেন্ট</h2>
           </div>
-        </div>
-        <div className="container" style={{ padding: 0 }}>
-          <div className="grid">
-            {loading ? [1, 2, 3].map(i => <div key={i} style={{ minWidth: '85%' }}><Skeleton variant="card" /></div>) : events.slice(0, 3).map(e => (
+          <div className="grid mobile-scroll">
+            {loading ? [1, 2, 3].map(i => <div key={i}><Skeleton variant="card" /></div>) : events.slice(0, 3).map(e => (
               <div className="event-card" key={e._id}>
                 <div className="event-card-header">
                   <div className={`event-badge ${e.type === 'event' ? 'event-badge-event' : 'event-badge-notice'}`}><Icon name="target" size={14} /> {e.type === 'event' ? 'ইভেন্ট' : 'নোটিশ'}</div>
@@ -309,7 +288,7 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <div className="container" style={{ textAlign: 'center', marginTop: 20 }}>
+          <div style={{ textAlign: 'center', marginTop: 30 }}>
             <Link to="/activities" className="btn btn-outline icon-inline">সব কার্যক্রম দেখুন <Icon name="arrow-right" size={16} /></Link>
           </div>
         </div>
@@ -317,13 +296,11 @@ export default function Home() {
 
       {/* 7. GALLERY PREVIEW */}
       <section className="section" style={{ background: 'rgba(255,255,255,0.3)', backdropFilter: 'blur(20px)' }}>
-        <div className="container" style={{ padding: '0 15px', marginBottom: 20 }}>
+        <div className="container">
           <div className="section-header">
             <span className="section-eyebrow">গ্যালারি</span>
             <h2 className="section-title">স্মরণীয় মুহূর্ত</h2>
           </div>
-        </div>
-        <div className="container" style={{ padding: 0 }}>
           <div className="gallery-preview">
             {loading ? [1, 2, 3, 4].map(i => <Skeleton key={i} variant="card" />) : gallery.slice(0, 4).map((g, i) => (
               <div key={g._id || i} className="gallery-preview-item" style={g.imageUrl ? { backgroundImage: `url('${g.imageUrl}')` } : {}}>
@@ -332,7 +309,7 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <div className="container" style={{ textAlign: 'center', marginTop: 20 }}>
+          <div style={{ textAlign: 'center', marginTop: 30 }}>
             <Link to="/gallery" className="btn btn-outline icon-inline">পুরো গ্যালারি দেখুন <Icon name="arrow-right" size={16} /></Link>
           </div>
         </div>
@@ -340,15 +317,13 @@ export default function Home() {
 
       {/* 8. TESTIMONIALS & REVIEW FORM */}
       <section className="section">
-        <div className="container" style={{ padding: '0 15px', marginBottom: 20 }}>
+        <div className="container">
           <div className="section-header">
             <span className="section-eyebrow">প্রশংসাপত্র</span>
             <h2 className="section-title">তারা যা বলেন</h2>
           </div>
-        </div>
-        
-        <div className="container" style={{ padding: 0 }}>
-          <div className="grid grid-3">
+          
+          <div className="grid grid-3 mobile-scroll">
             {reviews.map((r, i) => (
               <div className="testimonial-card" key={i}>
                 <div className="testimonial-quote"><Icon name="quote" size={40} strokeWidth={1.5} /></div>
@@ -360,9 +335,7 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </div>
 
-        <div className="container" style={{ padding: '0 15px' }}>
           <div className="review-section">
             <div className="section-header" style={{ marginBottom: '30px' }}>
               <h2 className="section-title" style={{ fontSize: '1.8rem' }}>আপনার মতামত দিন</h2>
